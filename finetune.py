@@ -12,25 +12,25 @@ from tqdm import tqdm
 from torchvision import datasets, models, transforms
 
 # train path
-train_original_path = '/mnt/xjc/cvpr_images/FFppDFaceC40/original/train'
-train_Deepfakes_path = '/mnt/xjc/cvpr_images/FFppDFaceC40/manipulated/Deepfakes/train'
-train_Face2Face_path = '/mnt/xjc/cvpr_images/FFppDFaceC40/manipulated/Face2Face/train'
-train_FaceSwap_path = '/mnt/xjc/cvpr_images/FFppDFaceC40/manipulated/FaceSwap/train'
-train_NeuralTextures_path ='/mnt/xjc/cvpr_images/FFppDFaceC40/manipulated/NeuralTextures/train'
+train_original_path = '/mnt/xjc/cvpr_images/FFppDFaceC0/original/train'
+train_Deepfakes_path = '/mnt/xjc/cvpr_images/FFppDFaceC0/manipulated/Deepfakes/train'
+train_Face2Face_path = '/mnt/xjc/cvpr_images/FFppDFaceC0/manipulated/Face2Face/train'
+train_FaceSwap_path = '/mnt/xjc/cvpr_images/FFppDFaceC0/manipulated/FaceSwap/train'
+train_NeuralTextures_path ='/mnt/xjc/cvpr_images/FFppDFaceC0/manipulated/NeuralTextures/train'
 
 # val path
-val_original_path = '/mnt/xjc/cvpr_images/FFppDFaceC40/original/val'
-val_Deepfakes_path = '/mnt/xjc/cvpr_images/FFppDFaceC40/manipulated/Deepfakes/val'
-val_Face2Face_path = '/mnt/xjc/cvpr_images/FFppDFaceC40/manipulated/Face2Face/val'
-val_FaceSwap_path = '/mnt/xjc/cvpr_images/FFppDFaceC40/manipulated/FaceSwap/val'
-val_NeuralTextures_path ='/mnt/xjc/cvpr_images/FFppDFaceC40/manipulated/NeuralTextures/val'
+val_original_path = '/mnt/xjc/cvpr_images/FFppDFaceC0/original/val'
+val_Deepfakes_path = '/mnt/xjc/cvpr_images/FFppDFaceC0/manipulated/Deepfakes/val'
+val_Face2Face_path = '/mnt/xjc/cvpr_images/FFppDFaceC0/manipulated/Face2Face/val'
+val_FaceSwap_path = '/mnt/xjc/cvpr_images/FFppDFaceC0/manipulated/FaceSwap/val'
+val_NeuralTextures_path ='/mnt/xjc/cvpr_images/FFppDFaceC0/manipulated/NeuralTextures/val'
 
 original_path = [train_original_path, val_original_path]
 manipulated_path = [train_Deepfakes_path, train_Face2Face_path, train_FaceSwap_path, train_NeuralTextures_path,
                     val_Deepfakes_path, val_Face2Face_path, val_FaceSwap_path, val_NeuralTextures_path]
 
 batch_size = 32
-num_epochs = 15
+num_epochs = 50
 
 
 def get_dataset(path):
@@ -88,15 +88,17 @@ def data_loader(batch_size=32):
         ]),
     }
 
-    # 720 * 270 images for each train dataset
+    # 720 * 40 images for original train dataset
     train_original_dataset = MyDataset(path=train_original_path, data_transforms=data_transforms['train'])
+    # 720 * 10 images for each manipulated train dataset
     train_Deepfakes_dataset = MyDataset(path=train_Deepfakes_path, data_transforms=data_transforms['train'])
     train_Face2Face_dataset = MyDataset(path=train_Face2Face_path, data_transforms=data_transforms['train'])
     train_FaceSwap_dataset = MyDataset(path=train_FaceSwap_path, data_transforms=data_transforms['train'])
     train_NeuralTextures_dataset = MyDataset(path=train_NeuralTextures_path, data_transforms=data_transforms['train'])
 
-    # 140 * 270 images for each val dataset
+    # 140 * 40 images for original val dataset
     val_original_dataset = MyDataset(path=val_original_path, data_transforms=data_transforms['val'])
+    # 140 * 10 images for original val dataset
     val_Deepfakes_dataset = MyDataset(path=val_Deepfakes_path, data_transforms=data_transforms['val'])
     val_Face2Face_dataset = MyDataset(path=val_Face2Face_path, data_transforms=data_transforms['val'])
     val_FaceSwap_dataset = MyDataset(path=val_FaceSwap_path, data_transforms=data_transforms['val'])
@@ -124,7 +126,7 @@ def train_model(model, criterion, optimizer, num_epochs):
     dataloader = {'train':train_dataloader, 'val':val_dataloader}
 
     train_size, val_size = len(train_dataloader.dataset), len(val_dataloader.dataset)
-    dataset_size = {'train':train_size, 'val':val_size} # 720 * 270 * 5    140 * 270 * 5
+    dataset_size = {'train':train_size, 'val':val_size} # 720 * 80    140 * 80
     print('Train: %d  Val: %d'%(train_size, val_size))
 
     for epoch in range(num_epochs):
@@ -148,8 +150,6 @@ def train_model(model, criterion, optimizer, num_epochs):
                 images = images.cuda()
                 labels = labels.cuda()
 
-                pbar.update(batch_size)
-
                 optimizer.zero_grad()
 
                 with torch.set_grad_enabled(phase == 'train'):
@@ -164,6 +164,8 @@ def train_model(model, criterion, optimizer, num_epochs):
 
                     running_loss += loss.item() * images.size(0)
                     running_corrects += torch.sum(preds == labels.data).item()
+                
+                pbar.update(batch_size)
             
             pbar.close()
 
@@ -177,6 +179,13 @@ def train_model(model, criterion, optimizer, num_epochs):
 
         print()
 
+        if epoch % 10 == 9:
+            print('Save best model until epoch %d'%(epoch))
+            current_model_wts = copy.deepcopy(model.state_dict())
+            model.load_state_dict(best_model_wts)
+            torch.save(model, 'cvpr_models/c23/xception_original_c23_%d.pkl'%(epoch+1))
+            model.load_state_dict(current_model_wts)
+
     time_elapsed = time.time() - since
     print('Training complete in %.0fm %.0fs'%(time_elapsed // 60, time_elapsed % 60))
     print('Best val Acc: %.4f'%(best_acc))
@@ -187,14 +196,15 @@ def train_model(model, criterion, optimizer, num_epochs):
 
 if __name__ == '__main__':
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = "2" 
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3" 
 
-    model_path = '/mnt/xjc/faceforensics++_models_subset/face_detection/xception/all_c40.p'
+    model_path = '/mnt/xjc/faceforensics++_models_subset/face_detection/xception/all_raw.p'
     model = torch.load(model_path)
+    model = torch.nn.DataParallel(model, device_ids=[0])
     model = model.cuda()
 
     criterion = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=0.0002, betas=(0.9, 0.999), eps=1e-8)
 
     model = train_model(model = model, criterion = criterion, optimizer = optimizer, num_epochs = num_epochs)
-    torch.save(model, 'cvpr_models/xception_original_c40.pkl')
+    torch.save(model, 'cvpr_models/c0/xception_original_c0_best.pkl')

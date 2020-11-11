@@ -13,33 +13,69 @@ data_types = ['train', 'val', 'test']
 for pr in frame_press_rate:
     for fake_type in fake_types:
         for data_type in data_types:
-            os.makedirs(os.path.join(dst_path, pr, 'manipulated' fake_type, data_type), exist_ok=True)
+            os.makedirs(os.path.join(dst_path, pr, 'manipulated', fake_type, data_type), exist_ok=True)
 
-train_list = []
-val_list = []
-test_list = []
+train_list, val_list, test_list = [], [], []
+single_train_list, single_val_list, single_test_list = [], [], []
 
 with open('train.json') as f:
     train = json.load(f)
     for pair in train:
         train_list.append(pair[0] + '_' + pair[1])
         train_list.append(pair[1] + '_' + pair[0])
+        single_train_list.append(pair[0])
+        single_train_list.append(pair[1])
 
 with open('val.json') as f:
     val = json.load(f)
     for pair in val:
         val_list.append(pair[0] + '_' + pair[1])
         val_list.append(pair[1] + '_' + pair[0])
+        single_val_list.append(pair[0])
+        single_val_list.append(pair[1])
 
 with open('test.json') as f:
     test = json.load(f)
     for pair in test:
         test_list.append(pair[0] + '_' + pair[1])
         test_list.append(pair[1] + '_' + pair[0])
+        single_test_list.append(pair[0])
+        single_test_list.append(pair[1])
 
 # sample frames into cvpr_images folder
 for pr in frame_press_rate:
     print('Processing press rate ' + pr)
+
+    print('Processing Original')
+    original_path = os.path.join(src_path, pr, 'original', 'youtube')
+    for original_name in os.listdir(original_path):
+        original_video_path = os.path.join(original_path, original_name)
+        all_frames = sorted(os.listdir(original_video_path))
+        frame_num = len(all_frames)
+        data_type, sample_num = None, None
+        if original_name in single_train_list:
+            data_type = 'train'
+            sample_num = 40
+        elif original_name in single_val_list:
+            data_type = 'val'
+            sample_num = 40
+        else:
+            data_type = 'test'
+            sample_num = 100
+
+        interval = int(frame_num / sample_num)
+        sample_index = [i*interval for i in range(sample_num)]
+        for ind in sample_index:
+            img_name = all_frames[ind]
+            img_path = os.path.join(original_video_path, img_name)
+            new_img_folder_path = os.path.join(dst_path, pr, 'original', data_type, original_name)
+            os.makedirs(new_img_folder_path, exist_ok=True)
+            new_img_path = os.path.join(new_img_folder_path, img_name)
+            try:
+                shutil.copyfile(img_path, new_img_path)
+            except:
+                pass
+
     frame_path = os.path.join(src_path, pr, 'manipulated')
     for fake_type in fake_types:
         print('Processing ' + fake_type)
@@ -52,10 +88,10 @@ for pr in frame_press_rate:
             data_type, sample_num = None, None
             if fake_name in train_list:
                 data_type = 'train'
-                sample_num = 270
+                sample_num = 10
             elif fake_name in val_list:
                 data_type = 'val'
-                sample_num = 270
+                sample_num = 10
             else:
                 data_type = 'test'
                 sample_num = 100
